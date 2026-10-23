@@ -1,0 +1,41 @@
+name: Build APK
+
+on:
+  push:
+    paths:
+      - 'GymPin_android.zip'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Unzip project
+        run: |
+          if [ ! -f GymPin_android.zip ]; then
+            echo "::error::Upload GymPin_android.zip to the root of the repository"
+            exit 1
+          fi
+          unzip -q -o GymPin_android.zip
+
+      - name: Install SDK 35 and build
+        working-directory: GymPin
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-35" "build-tools;35.0.0"
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GymPin-apk
+          path: GymPin/app/build/outputs/apk/debug/*.apk
