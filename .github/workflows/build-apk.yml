@@ -1,5 +1,9 @@
 name: Build APK
 
+# Every push builds a signed APK (Artifacts: TricFit-apk).
+# Actions → Build APK → Run workflow → "kiadas" bepipálva: a Releases oldalra is kiteszi
+# (ott van a nyilvános letöltési link, amit a klienseknek küldhetsz).
+
 on:
   push:
     paths:
@@ -10,6 +14,18 @@ on:
     workflows: ["Translate exercises"]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      kiadas:
+        description: 'Kiadás a Releases oldalra (letöltési link)'
+        type: boolean
+        default: false
+      megjegyzes:
+        description: 'Mi változott (a kiadás leírása)'
+        type: string
+        default: ''
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -40,6 +56,21 @@ jobs:
             echo "::warning::Nincs exercises_text.js – futtasd a Translate exercises workflow-t a magyar leírásokhoz"
           fi
 
+      - name: Signing key from secrets
+        env:
+          KS_B64: ${{ secrets.TRICFIT_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.TRICFIT_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.TRICFIT_KEY_ALIAS }}
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ]; then
+            echo "::error::Hiányzik a TRICFIT_KEYSTORE_B64 / TRICFIT_KEYSTORE_PASSWORD secret (Settings → Secrets and variables → Actions)"
+            exit 1
+          fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/tricfit.keystore"
+          echo "TRICFIT_KEYSTORE_FILE=$RUNNER_TEMP/tricfit.keystore" >> "$GITHUB_ENV"
+          echo "TRICFIT_KEYSTORE_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"
+          echo "TRICFIT_KEY_ALIAS=${KS_ALIAS:-tricfit}" >> "$GITHUB_ENV"
+
       - name: Install SDK 35 and build
         working-directory: TricFit
         run: |
@@ -47,9 +78,25 @@ jobs:
           yes | "$SDKM" --licenses > /dev/null || true
           "$SDKM" "platforms;android-35" "build-tools;35.0.0"
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          VER="1.0.${GITHUB_RUN_NUMBER}"
+          mkdir -p ../dist
+          cp app/build/outputs/apk/release/app-release.apk "../dist/TricFit-${VER}.apk"
+          echo "VER=$VER" >> "$GITHUB_ENV"
+          rm -f "$TRICFIT_KEYSTORE_FILE"
 
       - uses: actions/upload-artifact@v4
         with:
           name: TricFit-apk
-          path: TricFit/app/build/outputs/apk/debug/*.apk
+          path: dist/*.apk
+
+      - name: Publish release
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.kiadas }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ inputs.megjegyzes }}
+        run: |
+          gh release create "v${VER}" "dist/TricFit-${VER}.apk" \
+            --title "TricFit ${VER}" \
+            --notes "${NOTES:-TricFit ${VER}}" \
+            --latest
