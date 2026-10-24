@@ -4,12 +4,17 @@ on:
   push:
     paths:
       - 'GymPin_android.zip'
+      - 'exercises_text.js'
       - '.github/workflows/build-apk.yml'
+  workflow_run:
+    workflows: ["Translate exercises"]
+    types: [completed]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -25,6 +30,15 @@ jobs:
             exit 1
           fi
           unzip -q -o GymPin_android.zip
+
+      - name: Add offline exercise texts
+        run: |
+          if [ -f exercises_text.js ]; then
+            cp exercises_text.js GymPin/app/src/main/assets/www/
+            echo "exercises_text.js beépítve"
+          else
+            echo "::warning::Nincs exercises_text.js – futtasd a Translate exercises workflow-t a magyar leírásokhoz"
+          fi
 
       - name: Install SDK 35 and build
         working-directory: GymPin
