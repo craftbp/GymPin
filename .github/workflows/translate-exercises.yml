@@ -1,0 +1,53 @@
+name: Translate exercises
+
+# Futtatás: Actions → Translate exercises → Run workflow.
+# Lefordítja a 876 gyakorlat leírását magyarra (offline gépi fordítás + kézi fordítások),
+# és az eredményt (exercises_text.js) visszamenti a repóba. Utána az APK-build magától lefut.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache translation model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: opus-mt-tc-big-en-hu-v1
+
+      - name: Install
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install "transformers>=4.40,<5" sentencepiece sacremoses
+
+      - name: Get exercise data and tools
+        run: |
+          git clone --depth 1 https://github.com/yuhonas/free-exercise-db.git free-exercise-db
+          unzip -q -o GymPin_android.zip 'GymPin/tools/*'
+
+      - name: Translate
+        run: python GymPin/tools/translate_exercises.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exercises_text
+          path: exercises_text.js
+
+      - name: Save to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add exercises_text.js mt_cache.json
+          git commit -m "Gyakorlatleírások magyar fordítása" || echo "Nincs változás"
+          git push
