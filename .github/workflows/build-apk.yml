@@ -3,7 +3,7 @@ name: Build APK
 on:
   push:
     paths:
-      - 'GymPin_android.zip'
+      - 'TricFit_android.zip'
       - 'exercises_text.js'
       - '.github/workflows/build-apk.yml'
   workflow_run:
@@ -25,23 +25,23 @@ jobs:
 
       - name: Unzip project
         run: |
-          if [ ! -f GymPin_android.zip ]; then
-            echo "::error::Upload GymPin_android.zip to the root of the repository"
+          if [ ! -f TricFit_android.zip ]; then
+            echo "::error::Upload TricFit_android.zip to the root of the repository"
             exit 1
           fi
-          unzip -q -o GymPin_android.zip
+          unzip -q -o TricFit_android.zip
 
       - name: Add offline exercise texts
         run: |
           if [ -f exercises_text.js ]; then
-            cp exercises_text.js GymPin/app/src/main/assets/www/
+            cp exercises_text.js TricFit/app/src/main/assets/www/
             echo "exercises_text.js beépítve"
           else
             echo "::warning::Nincs exercises_text.js – futtasd a Translate exercises workflow-t a magyar leírásokhoz"
           fi
 
       - name: Install SDK 35 and build
-        working-directory: GymPin
+        working-directory: TricFit
         run: |
           SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKM" --licenses > /dev/null || true
@@ -51,5 +51,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: GymPin-apk
-          path: GymPin/app/build/outputs/apk/debug/*.apk
+          name: TricFit-apk
+          path: TricFit/app/build/outputs/apk/debug/*.apk
