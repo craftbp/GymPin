@@ -8,11 +8,7 @@ on:
   push:
     paths:
       - 'TricFit_android.zip'
-      - 'exercises_text.js'
       - '.github/workflows/build-apk.yml'
-  workflow_run:
-    workflows: ["Translate exercises"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       kiadas:
@@ -30,7 +26,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -47,14 +42,8 @@ jobs:
           fi
           unzip -q -o TricFit_android.zip
 
-      - name: Add offline exercise texts
-        run: |
-          if [ -f exercises_text.js ]; then
-            cp exercises_text.js TricFit/app/src/main/assets/www/
-            echo "exercises_text.js beépítve"
-          else
-            echo "::warning::Nincs exercises_text.js – futtasd a Translate exercises workflow-t a magyar leírásokhoz"
-          fi
+      # The Hungarian exercise texts (hand translation) are inside the zip:
+      # TricFit/app/src/main/assets/www/exercises_text.js – a file in the repository root is ignored.
 
       - name: Signing key from secrets
         env:
