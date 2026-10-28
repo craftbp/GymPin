@@ -74,6 +74,21 @@ jobs:
           echo "VER=$VER" >> "$GITHUB_ENV"
           rm -f "$TRICFIT_KEYSTORE_FILE"
 
+      - name: Web version to the server (/app/)
+        env:
+          TOKEN: ${{ secrets.TRICFIT_DEPLOY_TOKEN }}
+          SERVER: ${{ vars.TRICFIT_SERVER || 'https://oldboy.tail276f17.ts.net' }}
+        run: |
+          if [ -z "$TOKEN" ]; then echo "::warning::No TRICFIT_DEPLOY_TOKEN secret – the web version was not uploaded"; exit 0; fi
+          python3 - <<'PY'
+          import json, os, urllib.request
+          f = {"index.html": open("TricFit/web/index.html", encoding="utf-8").read(),
+               "exercises_text.js": open("TricFit/app/src/main/assets/www/exercises_text.js", encoding="utf-8").read()}
+          req = urllib.request.Request(os.environ["SERVER"] + "/api/tricfit/webapp", data=json.dumps({"files": f}).encode(), method="POST",
+                                       headers={"Content-Type": "application/json", "X-Deploy-Token": os.environ["TOKEN"]})
+          print(urllib.request.urlopen(req, timeout=120).read().decode())
+          PY
+
       - uses: actions/upload-artifact@v4
         with:
           name: TricFit-apk
